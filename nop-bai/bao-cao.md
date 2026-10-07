@@ -80,10 +80,10 @@ Cần nêu được:
 
 | | f1_score | accuracy |
 |---|---|---|
-| Bước 2 (chỉ `train_batch1`) | ___ | ___ |
-| Bước 3 (thêm `train_batch2`) | ___ | ___ |
+| Bước 2 (chỉ `train_batch1`) | 0.7149 | 0.8740 |
+| Bước 3 (thêm `train_batch2`) | 0.7354 | 0.8820 |
 
-**Nhận xét:** ___
+**Nhận xét:** Sau khi thêm `train_batch2`, F1-score tăng từ 0.7149 lên 0.7354 (tăng 0.0205), còn accuracy tăng từ 0.8740 lên 0.8820. Mức cải thiện tương đối nhỏ vì hai batch được lấy từ cùng một phân phối; dữ liệu bổ sung chủ yếu giúp mô hình giảm biến thiên và ước lượng ổn định hơn, thay vì cung cấp một nhóm đặc trưng hoàn toàn mới.
 
 <!--
 Một câu trả lời trung thực kiểu "f1 giảm 0,01 vì dữ liệu mới cùng phân phối, không mang
