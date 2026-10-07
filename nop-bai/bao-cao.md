@@ -1,16 +1,5 @@
 # Báo Cáo Lab Day 21 - CI/CD cho AI Systems
 
-<!--
-HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau khi điền xong:
-
-  - Giới hạn: KHÔNG QUÁ 1 TRANG A4, tương đương khoảng 450 - 550 từ nội dung.
-  - Chỉ điền vào các chỗ ___ và các ô trong bảng. Không thêm mục mới.
-  - Viết bằng câu hoàn chỉnh, không gạch đầu dòng cụt lủn.
-  - Kiểm tra độ dài sau khi đã xóa hết chú thích:
-        wc -w nop-bai/bao-cao.md
-    và xem trước bản in bằng cách mở file trên GitHub rồi Ctrl+P / Cmd+P.
--->
-
 | | |
 |---|---|
 | Họ và tên | Dương Phương Hiểu |
@@ -23,8 +12,6 @@ HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau k
 
 ## 1. Bộ Siêu Tham Số Đã Chọn và Lý Do
 
-<!-- Khoảng 120 - 150 từ. Điền kết quả thật từ MLflow UI ở Bước 1, tối thiểu 3 lần chạy. -->
-
 | Lần chạy | n_estimators | learning_rate | max_depth | f1_score | accuracy |
 |---|---|---|---|---|---|
 | 1 | 100 | 0.1 | 3 | 0.7109 | 0.8780 |
@@ -33,50 +20,27 @@ HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau k
 
 **Bộ siêu tham số đã chọn:** `n_estimators=200`, `learning_rate=0.1`, `max_depth=5`.
 
-**Lý do:** Cấu hình lần 3 được chọn vì đạt `f1_score=0.7149`, cao nhất trong ba lần chạy và vượt ngưỡng chất lượng 0.65. Accuracy cao nhất lại thuộc lần 1 (`0.8780`), không phải lần có F1 cao nhất; điều này cho thấy accuracy không phản ánh đầy đủ khả năng nhận diện lớp thu nhập cao vốn là lớp thiểu số. Lần 2 dùng ít cây hơn, learning rate thấp hơn và cây nông hơn nên học chưa đủ, chỉ đạt F1 `0.6051`. Kết quả minh họa sự đánh đổi giữa `n_estimators` và `learning_rate`: khi giảm learning rate xuống `0.05`, cần nhiều hơn 50 cây để bù mức đóng góp nhỏ của từng cây. Với learning rate `0.1`, tăng số cây và độ sâu giúp F1 tăng nhẹ so với cấu hình mặc định.
-
-<!--
-Trả lời trong phần Lý do:
-  - Vì sao bộ này tốt hơn các bộ còn lại (dựa trên f1_score, không phải accuracy)?
-  - Lần chạy có accuracy cao nhất có trùng với lần có f1_score cao nhất không?
-    Nếu không, điều đó nói lên điều gì?
-  - Bạn quan sát thấy đánh đổi nào giữa n_estimators và learning_rate?
--->
+**Lý do:** Lần 3 đạt F1 `0.7149`, cao nhất và vượt Quality Gate `0.65`. Accuracy cao nhất lại thuộc lần 1 (`0.8780`), chứng tỏ accuracy chưa phản ánh tốt lớp thu nhập cao thiểu số. Lần 2 chỉ đạt F1 `0.6051` vì ít cây, learning rate thấp và cây nông. Learning rate nhỏ làm đóng góp của mỗi cây giảm nên cần tăng `n_estimators`; với learning rate `0.1`, tăng số cây và độ sâu giúp F1 nhích lên.
 
 ---
 
 ## 2. Vì Sao Ngưỡng Chất Lượng Đặt Trên F1 Chứ Không Phải Accuracy
 
-<!-- Khoảng 120 - 150 từ. -->
-
-___
-
-<!--
-Cần nêu được:
-  - Phân bố lớp của tập dữ liệu (tỷ lệ lớp thu nhập > 50K) và hệ quả của nó.
-  - Accuracy của một mô hình luôn trả lời "thu nhập thấp" là bao nhiêu, vì sao con số
-    đó gây hiểu nhầm.
-  - F1 của lớp dương đo điều gì mà accuracy không đo được.
-  - Vì sao KHÔNG dùng average="weighted" hay average="macro" khi gọi f1_score.
--->
+Lớp thu nhập cao (`target=1`) chỉ chiếm 24,8% nên dữ liệu mất cân bằng. Mô hình luôn trả lời “thu nhập thấp” vẫn đạt 75,2% accuracy nhưng recall lớp dương bằng 0; dùng accuracy làm cổng chất lượng vì thế gây hiểu nhầm. F1 là trung bình điều hòa của precision và recall, chỉ cao khi mô hình vừa hạn chế báo động giả vừa phát hiện đủ mẫu dương. Mã gọi trực tiếp `f1_score(y_eval, preds)`. Không dùng `average="weighted"` vì lớp đa số chi phối kết quả, cũng không dùng `average="macro"` vì mục tiêu là đánh giá riêng lớp dương thiểu số.
 
 ---
 
 ## 3. Khó Khăn Gặp Phải và Cách Giải Quyết
 
-<!-- Nêu 2 - 3 khó khăn thật, mỗi ô một câu ngắn. -->
-
 | Khó khăn | Nguyên nhân | Cách giải quyết |
 |---|---|---|
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
+| DVC không ghi được S3 | IAM user thiếu quyền S3 | Tạo user CI với quyền tối thiểu trên `dvc/*` và `artifacts/current/*`. |
+| Push chưa tự chạy | Actions chưa bật cho repository fork | Bật workflow rồi kiểm chứng bằng push trên `main`. |
+| API bị timeout | Mạng luân phiên ba IP egress | Chỉ mở cổng 8080 cho ba CIDR `/32` tương ứng. |
 
 ---
 
 ## 4. So Sánh Bước 2 và Bước 3 (bắt buộc, 2 - 3 câu)
-
-<!-- Lấy số liệu từ bảng ở mục 3.6 của tasks/buoc-3.md. -->
 
 | | f1_score | accuracy |
 |---|---|---|
@@ -84,20 +48,3 @@ Cần nêu được:
 | Bước 3 (thêm `train_batch2`) | 0.7354 | 0.8820 |
 
 **Nhận xét:** Sau khi thêm `train_batch2`, F1-score tăng từ 0.7149 lên 0.7354 (tăng 0.0205), còn accuracy tăng từ 0.8740 lên 0.8820. Mức cải thiện tương đối nhỏ vì hai batch được lấy từ cùng một phân phối; dữ liệu bổ sung chủ yếu giúp mô hình giảm biến thiên và ước lượng ổn định hơn, thay vì cung cấp một nhóm đặc trưng hoàn toàn mới.
-
-<!--
-Một câu trả lời trung thực kiểu "f1 giảm 0,01 vì dữ liệu mới cùng phân phối, không mang
-thêm thông tin mới" được đánh giá cao hơn kết luận sai rằng thêm dữ liệu luôn tốt hơn.
--->
-
----
-
-## 5. Phần Bonus Đã Thực Hiện (nếu có)
-
-<!-- Xóa cả mục 5 nếu không làm bonus. Mỗi bonus tối đa 1 dòng. -->
-
-- [ ] Bonus 1 - Tracking MLflow từ xa với DagsHub: ___
-- [ ] Bonus 2 - Điều chỉnh ngưỡng quyết định: ___
-- [ ] Bonus 3 - Báo cáo precision / recall tự động: ___
-- [ ] Bonus 4 - Hoàn trả về phiên bản trước: ___
-- [ ] Bonus 5 - Cảnh báo lệch lạc dữ liệu: ___
