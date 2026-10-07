@@ -1,5 +1,6 @@
 name: Income Model CI/CD
 
+# Automatically validate and deploy model-affecting changes on main.
 on:
   push:
     branches: [main]
