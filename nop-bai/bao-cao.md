@@ -13,11 +13,11 @@ HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau k
 
 | | |
 |---|---|
-| Họ và tên | ___ |
-| MSSV | ___ |
+| Họ và tên | Dương Phương Hiểu |
+| MSSV | 2A202603008 |
 | Lớp / Khóa | K4 |
-| Repo GitHub | https://github.com/___/___ |
-| Ngày nộp | ___ |
+| Repo GitHub | <https://github.com/dphieu/K4-L3-Day21-DuongPhuongHieu-2A202603008-CI-CD-for-AI-Systems> |
+| Ngày nộp | 07/10/2026 |
 
 ---
 
@@ -27,13 +27,13 @@ HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau k
 
 | Lần chạy | n_estimators | learning_rate | max_depth | f1_score | accuracy |
 |---|---|---|---|---|---|
-| 1 | ___ | ___ | ___ | ___ | ___ |
-| 2 | ___ | ___ | ___ | ___ | ___ |
-| 3 | ___ | ___ | ___ | ___ | ___ |
+| 1 | 100 | 0.1 | 3 | 0.7109 | 0.8780 |
+| 2 | 50 | 0.05 | 2 | 0.6051 | 0.8460 |
+| 3 | 200 | 0.1 | 5 | 0.7149 | 0.8740 |
 
-**Bộ siêu tham số đã chọn:** `n_estimators=___`, `learning_rate=___`, `max_depth=___`.
+**Bộ siêu tham số đã chọn:** `n_estimators=200`, `learning_rate=0.1`, `max_depth=5`.
 
-**Lý do:** ___
+**Lý do:** Cấu hình lần 3 được chọn vì đạt `f1_score=0.7149`, cao nhất trong ba lần chạy và vượt ngưỡng chất lượng 0.65. Accuracy cao nhất lại thuộc lần 1 (`0.8780`), không phải lần có F1 cao nhất; điều này cho thấy accuracy không phản ánh đầy đủ khả năng nhận diện lớp thu nhập cao vốn là lớp thiểu số. Lần 2 dùng ít cây hơn, learning rate thấp hơn và cây nông hơn nên học chưa đủ, chỉ đạt F1 `0.6051`. Kết quả minh họa sự đánh đổi giữa `n_estimators` và `learning_rate`: khi giảm learning rate xuống `0.05`, cần nhiều hơn 50 cây để bù mức đóng góp nhỏ của từng cây. Với learning rate `0.1`, tăng số cây và độ sâu giúp F1 tăng nhẹ so với cấu hình mặc định.
 
 <!--
 Trả lời trong phần Lý do:

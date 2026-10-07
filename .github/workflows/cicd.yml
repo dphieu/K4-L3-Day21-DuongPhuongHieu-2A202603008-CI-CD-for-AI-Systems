@@ -6,8 +6,17 @@ on:
     paths:
       - 'data/**.dvc'
       - 'src/**.py'
+      - 'tests/**.py'
       - 'params.yaml'
+      - 'requirements.txt'
+      - '.github/workflows/cicd.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
 
 jobs:
 
@@ -31,8 +40,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run unit tests
-        # TODO 1: Viet lenh de chay pytest tren thu muc tests/ voi co -v
-        run: # <dien lenh o day>
+        run: pytest tests/ -v
 
 
   # ---------------------------------------------------------------------------
@@ -58,41 +66,55 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Authenticate to Cloud Storage
-        # TODO 2: Ghi noi dung credentials ra file tam va set bien moi truong xac thuc.
-        # GCP:   echo '${{ secrets.STORAGE_CREDENTIALS }}' > /tmp/sa-key.json
-        #        echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
-        # AWS:   echo "AWS_ACCESS_KEY_ID=..." >> $GITHUB_ENV  (lay tu secrets)
-        #        echo "AWS_SECRET_ACCESS_KEY=..." >> $GITHUB_ENV
-        # Azure: echo "AZURE_STORAGE_CONNECTION_STRING=..." >> $GITHUB_ENV
+        env:
+          STORAGE_CREDENTIALS: ${{ secrets.STORAGE_CREDENTIALS }}
         run: |
-          # <dien code o day>
+          python - <<'PYEOF'
+          import json
+          import os
+
+          credentials = json.loads(os.environ["STORAGE_CREDENTIALS"])
+          required = {"aws_access_key_id", "aws_secret_access_key"}
+          if not required.issubset(credentials):
+              raise SystemExit("STORAGE_CREDENTIALS is missing AWS keys")
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(
+                  f"AWS_ACCESS_KEY_ID={credentials['aws_access_key_id']}\n"
+                  f"AWS_SECRET_ACCESS_KEY={credentials['aws_secret_access_key']}\n"
+              )
+          PYEOF
 
       - name: Pull data with DVC
-        # TODO 3: Pull cac file du lieu can thiet tu cloud storage bang lenh dvc pull.
-        #         Chi pull train_batch1.csv va holdout.csv (khong can train_batch2.csv).
-        run: # <dien lenh o day>
+        run: dvc pull data/train_batch1.csv.dvc data/holdout.csv.dvc
 
       - name: Train model
         run: python src/train.py
 
       - name: Read report
         id: read_report
-        # TODO 4: Doc gia tri "f1_score" tu outputs/report.json bang Python inline.
-        #         Set ket qua thanh output "f1" de job quality-gate co the doc.
-        #
-        # Goi y:
-        #   F1=$(python -c "import json; d=json.load(open('outputs/report.json')); print(d['f1_score'])")
-        #   echo "f1=$F1" >> $GITHUB_OUTPUT
         run: |
-          # <dien code o day>
+          F1=$(python -c "import json; d=json.load(open('outputs/report.json')); print(d['f1_score'])")
+          echo "f1=$F1" >> "$GITHUB_OUTPUT"
 
       - name: Upload model to Cloud Storage
-        # TODO 5: Su dung cloud SDK de upload models/model.joblib len
-        #         <bucket>/artifacts/current/model.joblib.
-        #         Ten bucket lay tu secret ARTIFACT_BUCKET.
+        env:
+          ARTIFACT_BUCKET: ${{ secrets.ARTIFACT_BUCKET }}
         run: |
           python - <<'PYEOF'
-          # <dien code Python o day>
+          import os
+          import boto3
+
+          s3_client = boto3.client("s3")
+          bucket = os.environ["ARTIFACT_BUCKET"]
+          key = "artifacts/current/model.joblib"
+          s3_client.upload_file(
+              "models/model.joblib",
+              bucket,
+              key,
+              ExtraArgs={"ServerSideEncryption": "AES256"},
+          )
+          print(f"Uploaded model to s3://{bucket}/{key}")
           PYEOF
 
       - name: Save report as artifact
@@ -119,18 +141,14 @@ jobs:
     steps:
 
       - name: Check quality gate
-        # TODO 6: Doc f1 tu output cua job train.
-        #         Neu f1 < 0.65, ket thuc voi loi ro rang.
-        #         Neu dat nguong, in thong bao va tiep tuc.
-        #
-        # Goi y:
-        #   f1 = float("${{ needs.train.outputs.f1 }}")
-        #   if f1 < 0.65:
-        #       raise SystemExit(f"FAILED: f1_score {f1:.4f} < 0.65. Huy trien khai.")
-        #   print("PASSED: dang trien khai model.")
         run: |
           python - <<'PYEOF'
-          # <dien code Python o day>
+          f1 = float("${{ needs.train.outputs.f1 }}")
+          if f1 < 0.65:
+              raise SystemExit(
+                  f"FAILED: f1_score {f1:.4f} < 0.65. Deployment stopped."
+              )
+          print(f"PASSED: f1_score {f1:.4f} >= 0.65. Deploying model.")
           PYEOF
 
 
@@ -152,12 +170,22 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            # TODO 7: Restart service income-api tren VM.
-            # TODO 8: Cho server san sang roi goi curl /healthz de xac nhan.
-            #         Neu health check that bai sau nhieu lan thu, thoat voi exit 1.
-            #
-            # Goi y:
-            #   sudo systemctl restart income-api
-            #   sleep 5
-            #   curl -sf http://localhost:8080/healthz && echo "Health check passed." || exit 1
-            # <dien lenh bash o day>
+            if [ ! -d /home/ubuntu/app/.git ]; then
+              git clone --branch main --single-branch \
+                https://github.com/dphieu/K4-L3-Day21-DuongPhuongHieu-2A202603008-CI-CD-for-AI-Systems.git \
+                /home/ubuntu/app
+            else
+              git -C /home/ubuntu/app fetch origin main
+              git -C /home/ubuntu/app checkout -B main origin/main
+            fi
+            sudo systemctl restart income-api
+            for attempt in 1 2 3 4 5 6; do
+              if curl -sf http://localhost:8080/healthz; then
+                echo "Health check passed."
+                exit 0
+              fi
+              echo "Waiting for income-api (attempt $attempt/6)..."
+              sleep 5
+            done
+            sudo journalctl -u income-api -n 50 --no-pager
+            exit 1
